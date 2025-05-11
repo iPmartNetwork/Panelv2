@@ -36,6 +36,54 @@ print_error() {
 install_prerequisites() {
     print_info "Checking and installing prerequisites..."
 
+    # Install Docker
+    if ! command -v docker &> /dev/null; then
+        print_info "Docker not found. Attempting to install Docker..."
+        if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            # Add Docker's official GPG key:
+            sudo apt-get update
+            sudo apt-get install -y ca-certificates curl
+            sudo install -m 0755 -d /etc/apt/keyrings
+            sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+            sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+            # Add the repository to Apt sources:
+            echo \
+              "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+              $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+              sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt-get update
+            sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+            print_success "Docker installed. You might need to add your user to the 'docker' group: sudo usermod -aG docker $USER && newgrp docker"
+            print_warning "You may need to log out and log back in, or run 'newgrp docker' for group changes to take effect, or run subsequent docker commands with sudo."
+        else
+            print_error "Unsupported OS for automatic Docker installation. Please install Docker manually (https://docs.docker.com/engine/install/)."
+            exit 1
+        fi
+    else
+        print_info "Docker is already installed."
+    fi
+
+    # Check if Docker daemon is running
+    if ! docker ps &> /dev/null; then
+        print_error "Docker daemon is not running. Please start Docker and try again."
+        # Attempt to start Docker if systemd is present
+        if command -v systemctl &> /dev/null; then
+            print_info "Attempting to start Docker service..."
+            sudo systemctl start docker
+            sleep 5 # Give Docker some time to start
+            if ! docker ps &> /dev/null; then
+                print_error "Failed to start Docker daemon automatically. Please start it manually."
+                exit 1
+            fi
+            print_success "Docker daemon started."
+        else
+            exit 1
+        fi
+    else
+        print_info "Docker daemon is running."
+    fi
+
     # Install Git
     if ! command -v git &> /dev/null; then
         print_info "Git not found. Installing Git..."
@@ -189,7 +237,7 @@ setup_project() {
     print_success "Node.js dependencies installed."
 
     # Build Rust project
-    print_info "Building Rust project (release mode) using cross..."
+    print_info "Building Rust project (release mode) using cross for target armv7-unknown-linux-gnueabihf..."
     # Ensure cargo/cross is available for this step
     if ! command -v cross &> /dev/null; then
         if [ -f "$HOME/.cargo/env" ]; then
@@ -209,9 +257,7 @@ setup_project() {
              fi
         fi
     fi
-    # Assuming Cross.toml specifies the target, or it's armv7-unknown-linux-gnueabihf by convention for this project
-    # If Cross.toml doesn't specify a default, you might need: cross build --target armv7-unknown-linux-gnueabihf --release
-    cross build --release
+    cross build --target armv7-unknown-linux-gnueabihf --release
     print_success "Rust project built using cross."
 
     cd "$INSTALL_BASE_DIR" # Go back to original directory
@@ -278,7 +324,8 @@ setup_systemd_service() {
         cat << EOF > "$TEMP_SERVICE_FILE"
 [Unit]
 Description=Panelv2 Service
-After=network.target
+After=network.target docker.service
+Requires=docker.service
 
 [Service]
 Type=simple
