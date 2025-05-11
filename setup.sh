@@ -131,11 +131,23 @@ install_prerequisites() {
             print_warning "Could not source cargo env. Cargo might not be in PATH for subsequent steps in this script if rustup didn't update PATH for the current session."
         fi
         print_success "Rust and Cargo installed."
+        # Add the required target for cross-compilation
+        print_info "Adding armv7-unknown-linux-gnueabihf target for Rust..."
+        rustup target add armv7-unknown-linux-gnueabihf
+        print_success "armv7-unknown-linux-gnueabihf target added."
     else
         print_info "Rust (cargo) is already installed."
         # Ensure cargo env is sourced if script is re-run and cargo was just installed
         if [ -f "$HOME/.cargo/env" ] && ! command -v cargo &>/dev/null; then
              source "$HOME/.cargo/env"
+        fi
+        # Ensure the target is present even if Rust was already installed
+        if ! rustup target list --installed | grep -q "armv7-unknown-linux-gnueabihf"; then
+            print_info "Adding armv7-unknown-linux-gnueabihf target for Rust..."
+            rustup target add armv7-unknown-linux-gnueabihf
+            print_success "armv7-unknown-linux-gnueabihf target added."
+        else
+            print_info "armv7-unknown-linux-gnueabihf target is already installed."
         fi
     fi
 }
