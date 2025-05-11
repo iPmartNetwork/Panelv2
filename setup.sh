@@ -2,26 +2,40 @@
 
 # Bash Script for Automatic Installation and Setup
 
-# Step 1: Check for required tools
+set -e
+
+# Step 1: Check for required tools and install if missing
 echo "Checking for required tools..."
 
-# Check for Git
-if ! command -v git &> /dev/null
-then
-    echo "Git is not installed. Please install Git and try again."
-    exit 1
+# Install Git if not present
+if ! command -v git &> /dev/null; then
+    echo "Git is not installed. Installing Git..."
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        sudo apt-get update && sudo apt-get install -y git
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install git
+    else
+        echo "Please install Git manually."
+        exit 1
+    fi
 fi
 
-# Check for Node.js and npm
-if ! command -v node &> /dev/null
-then
-    echo "Node.js is not installed. Please install Node.js and try again."
-    exit 1
+# Install Node.js and npm if not present
+if ! command -v node &> /dev/null; then
+    echo "Node.js is not installed. Installing Node.js..."
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        brew install node
+    else
+        echo "Please install Node.js manually."
+        exit 1
+    fi
 fi
 
-# Check for Rust and Cargo
-if ! command -v cargo &> /dev/null
-then
+# Install Rust and Cargo if not present
+if ! command -v cargo &> /dev/null; then
     echo "Rust is not installed. Installing Rust..."
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
     source $HOME/.cargo/env
