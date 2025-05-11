@@ -150,6 +150,18 @@ install_prerequisites() {
             print_info "armv7-unknown-linux-gnueabihf target is already installed."
         fi
     fi
+
+    # Install cross for cross-compilation
+    if ! command -v cross &> /dev/null; then
+        print_info "cross tool not found. Installing cross..."
+        if ! command -v cargo &> /dev/null; then # Ensure cargo is available
+             if [ -f "$HOME/.cargo/env" ]; then source "$HOME/.cargo/env"; fi
+        fi
+        cargo install cross
+        print_success "cross tool installed."
+    else
+        print_info "cross tool is already installed."
+    fi
 }
 
 # --- Project Setup ---
@@ -177,19 +189,30 @@ setup_project() {
     print_success "Node.js dependencies installed."
 
     # Build Rust project
-    print_info "Building Rust project (release mode)..."
-    # Ensure cargo is available for this step
-    if ! command -v cargo &> /dev/null; then
+    print_info "Building Rust project (release mode) using cross..."
+    # Ensure cargo/cross is available for this step
+    if ! command -v cross &> /dev/null; then
         if [ -f "$HOME/.cargo/env" ]; then
-            source "$HOME/.cargo/env"
+            source "$HOME/.cargo/env" # To get cargo in PATH for cross
         fi
-        if ! command -v cargo &> /dev/null; then
-            print_error "Cargo command not found even after attempting to source env. Cannot build Rust project."
-            exit 1
+        if ! command -v cross &> /dev/null; then # If cross was just installed by cargo install
+             if ! command -v cargo &> /dev/null; then # If cargo itself is not in path
+                print_error "Cargo command not found. Cannot find or run cross."
+                exit 1
+             fi
+             # Try to find cross in cargo's bin dir if not in PATH yet
+             if [ -x "$HOME/.cargo/bin/cross" ]; then
+                 export PATH="$HOME/.cargo/bin:$PATH"
+             else
+                print_error "cross command not found even after attempting to source env. Cannot build Rust project."
+                exit 1
+             fi
         fi
     fi
-    cargo build --release
-    print_success "Rust project built."
+    # Assuming Cross.toml specifies the target, or it's armv7-unknown-linux-gnueabihf by convention for this project
+    # If Cross.toml doesn't specify a default, you might need: cross build --target armv7-unknown-linux-gnueabihf --release
+    cross build --release
+    print_success "Rust project built using cross."
 
     cd "$INSTALL_BASE_DIR" # Go back to original directory
 }
