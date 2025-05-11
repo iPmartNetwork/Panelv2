@@ -1,0 +1,23 @@
+name: Upload (linux)
+
+on: workflow_dispatch
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install cross
+      run: cargo install cross
+    - name: Build Rust
+      run: cross build --release --verbose
+    - name: Upload
+      uses: actions/upload-artifact@v4.6.2
+      with:
+        name: WireGuard UI Artifact
+        path: target/armv7-unknown-linux-gnueabihf/release/wireguard-ui-backend
+        if-no-files-found: error
+        compression-level: 0
